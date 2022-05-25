@@ -107,5 +107,5 @@ func sendEvent(client *eventbridge.Client, event string) {
 		log.Println("Failed to send event to event bridge", err)
 		return
 	}
-	fmt.Println("send event response", output)
+	fmt.Println("send event response", output.FailedEntryCount, output.Entries)
 }
