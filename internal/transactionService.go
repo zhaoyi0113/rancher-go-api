@@ -59,16 +59,17 @@ func ProcessTransactionRequest(request []byte) {
 	}
 	client := eventbridge.NewFromConfig(cfg)
 
-	initiatedEvent := getInitiatedEvent(transactionRequest.Amount)
-	approvedEvent := getApprovedEvent()
+	transactionUuid := uuid.NewString()
+	initiatedEvent := getInitiatedEvent(transactionUuid, transactionRequest.Amount)
+	approvedEvent := getApprovedEvent(transactionUuid)
 
-	sendEvent(client, initiatedEvent)
-	sendEvent(client, approvedEvent)
+	sendEvent(client, "pgs.Transaction.Initiated", initiatedEvent)
+	sendEvent(client, "pgs.Transaction.Approved", approvedEvent)
 }
 
-func getInitiatedEvent(amount int) string {
+func getInitiatedEvent(id string, amount int) string {
 	initiated := TransactionInitiated{
-		TransactionUuid: uuid.NewString(),
+		TransactionUuid: id,
 		Amount:          amount,
 		Timestamp:       time.Now().Format(time.RFC3339),
 		TimestampUtc:    time.Now().UTC().Format("2006-01-02T15:04:05Z07:00"),
@@ -81,11 +82,11 @@ func getInitiatedEvent(amount int) string {
 	return string(bytes)
 }
 
-func getApprovedEvent() string {
+func getApprovedEvent(id string) string {
 	approved := TransactionApproved{
+		TransactionUuid: id,
 		EntityUuid:      entityUuid,
 		SiteUuid:        siteUuid,
-		TransactionUuid: uuid.NewString(),
 		Timestamp:       time.Now().Format(time.RFC3339),
 		TimestampUtc:    time.Now().UTC().Format("2006-01-02T15:04:05Z07:00"),
 	}
@@ -94,13 +95,14 @@ func getApprovedEvent() string {
 	return string(bytes)
 }
 
-func sendEvent(client *eventbridge.Client, event string) {
+func sendEvent(client *eventbridge.Client, eventUri string, event string) {
+	fmt.Println("send event to event bus", event)
 	output, err := client.PutEvents(context.TODO(), &eventbridge.PutEventsInput{
 		Entries: []types.PutEventsRequestEntry{
 			{
 				EventBusName: aws.String("dev-eventBus-global"),
 				Detail:       aws.String(event),
-				DetailType:   aws.String("pgs.Transaction.Initiated"),
+				DetailType:   aws.String(eventUri),
 				Source:       aws.String("pgs"),
 			},
 		},
