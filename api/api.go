@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zhaoyi0113/rancher-go-api/internal"
 )
 
 func CreateRoute() *gin.Engine {
@@ -25,6 +26,7 @@ func CreateRoute() *gin.Engine {
 			c.Writer.WriteHeader(http.StatusBadRequest)
 		}
 		fmt.Println("transaction", string(jsonData))
+		internal.ProcessTransactionRequest(jsonData)
 	})
 
 	return r
