@@ -8,39 +8,67 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/eventbridge"
 	"github.com/aws/aws-sdk-go-v2/service/eventbridge/types"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/google/uuid"
 )
 
-var entityUuid = "5262a830-7b7a-41d4-ba81-062459d36992"
+var entityUuid = "c1b5baaf-0301-4bc6-9ce8-ae9cf919638f"
 var siteUuid = "3c4ed0c6-a028-4c9f-a830-84c7cdde5db9"
+var deviceUuid = "a37317aa-e17c-4831-a503-9f40546c13f6"
 
 type TransactionRequest struct {
 	Amount int
 }
 
+type Amount struct {
+	Currency string `json:"currency"`
+	Value    string `json:"value"`
+}
+
 type TransactionInitiated struct {
-	Amount          int    `json:"amount"`
+	Amount          Amount `json:"amount"`
 	TransactionUuid string `json:"transactionUuid"`
 	Timestamp       string `json:"timestamp"`
 	TimestampUtc    string `json:"timestampUtc"`
 	EntityUuid      string `json:"entityUuid"`
 	SiteUuid        string `json:"siteUuid"`
+	DeviceUuid      string `json:"deviceUuid"`
 	Type            string `json:"type"`
+	Scheme          string `json:"scheme"`
+	SurchargeAmount Amount `json:"surchargeAmount"`
+	SaleAmount      Amount `json:"saleAmount"`
+	TipAmount       Amount `json:"tipAmount"`
 }
 
 type TransactionApproved struct {
 	TransactionUuid     string `json:"transactionUuid"`
 	EntityUuid          string `json:"entityUuid"`
 	SiteUuid            string `json:"siteUuid"`
+	DeviceUuid          string `json:"deviceUuid"`
 	Timestamp           string `json:"timestamp"`
 	TimestampUtc        string `json:"timestampUtc"`
 	ResponseCode        string `json:"responseCode"`
 	ResponseDescription string `json:"responseDescription"`
 	ApprovalCode        string `json:"approvalCode"`
 	Rrn                 string `json:"rrn"`
+}
+
+type DomainEvent struct {
+	AggregateId string                 `json:"aggregateId"`
+	EventId     string                 `json:"eventId"`
+	Uri         string                 `json:"uri"`
+	Aggregate   string                 `json:"aggregate"`
+	Payload     map[string]interface{} `json:"payload"`
+}
+
+type AWSCredential struct {
+	KeyId  string `json:"AWS_ACCESS_KEY_ID"`
+	Secret string `json:"AWS_SECRET_ACCESS_KEY"`
 }
 
 func ProcessTransactionRequest(request []byte) {
@@ -50,8 +78,13 @@ func ProcessTransactionRequest(request []byte) {
 		log.Println("Failed to process transaction request", err)
 		return
 	}
+	awsCredentials, err := getCredentials()
+	if err != nil {
+		return
+	}
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion("ap-southeast-2"),
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(awsCredentials.KeyId, awsCredentials.Secret, "")),
 	)
 	if err != nil {
 		log.Println("unable to load SDK config", err)
@@ -70,28 +103,62 @@ func ProcessTransactionRequest(request []byte) {
 func getInitiatedEvent(id string, amount int) string {
 	initiated := TransactionInitiated{
 		TransactionUuid: id,
-		Amount:          amount,
-		Timestamp:       time.Now().Format(time.RFC3339),
-		TimestampUtc:    time.Now().UTC().Format("2006-01-02T15:04:05Z07:00"),
-		Type:            "PURCHASE",
-		EntityUuid:      entityUuid,
-		SiteUuid:        siteUuid,
+		Amount: Amount{
+			Currency: "AUD", Value: "6000",
+		},
+		SurchargeAmount: Amount{
+			Currency: "AUD", Value: "6000",
+		},
+		TipAmount: Amount{
+			Currency: "AUD", Value: "6000",
+		},
+		Timestamp:    time.Now().Format(time.RFC3339),
+		TimestampUtc: time.Now().UTC().Format("2006-01-02T15:04:05Z07:00"),
+		Type:         "PURCHASE",
+		EntityUuid:   entityUuid,
+		SiteUuid:     siteUuid,
+		DeviceUuid:   deviceUuid,
+		Scheme:       "VISA",
 	}
 	bytes, _ := json.Marshal(initiated)
+	payload := make(map[string]interface{})
+	json.Unmarshal(bytes, &payload)
+	event := DomainEvent{
+		EventId:     uuid.NewString(),
+		AggregateId: id,
+		Aggregate:   "Transaction",
+		Uri:         "pgs.Transaction.Initiated",
+		Payload:     payload,
+	}
+	bytes, _ = json.Marshal(event)
 	fmt.Println("send initiated transaction to eventbus", initiated.TransactionUuid)
 	return string(bytes)
 }
 
 func getApprovedEvent(id string) string {
 	approved := TransactionApproved{
-		TransactionUuid: id,
-		EntityUuid:      entityUuid,
-		SiteUuid:        siteUuid,
-		Timestamp:       time.Now().Format(time.RFC3339),
-		TimestampUtc:    time.Now().UTC().Format("2006-01-02T15:04:05Z07:00"),
+		TransactionUuid:     id,
+		EntityUuid:          entityUuid,
+		SiteUuid:            siteUuid,
+		DeviceUuid:          deviceUuid,
+		Timestamp:           time.Now().Format(time.RFC3339),
+		TimestampUtc:        time.Now().UTC().Format("2006-01-02T15:04:05Z07:00"),
+		ApprovalCode:        "00",
+		ResponseCode:        "00",
+		ResponseDescription: "Approved",
 	}
-	fmt.Println("send approved transaction to eventbus", approved.TransactionUuid)
 	bytes, _ := json.Marshal(approved)
+	payload := make(map[string]interface{})
+	json.Unmarshal(bytes, &payload)
+	event := DomainEvent{
+		EventId:     uuid.NewString(),
+		AggregateId: id,
+		Aggregate:   "Transaction",
+		Uri:         "pgs.Transaction.Approved",
+		Payload:     payload,
+	}
+	bytes, _ = json.Marshal(event)
+	fmt.Println("send initiated transaction to eventbus", approved.TransactionUuid)
 	return string(bytes)
 }
 
@@ -111,5 +178,28 @@ func sendEvent(client *eventbridge.Client, eventUri string, event string) {
 		log.Println("Failed to send event to event bridge", err)
 		return
 	}
-	fmt.Println("send event response", output.FailedEntryCount, output.Entries)
+	fmt.Println("send event response", output.FailedEntryCount, output.Entries[0].ErrorCode, output.Entries[0].ErrorMessage)
+}
+
+func getCredentials() (*AWSCredential, error) {
+
+	mySession := session.Must(session.NewSession())
+
+	client := secretsmanager.New(mySession)
+	output, err := client.GetSecretValue(&secretsmanager.GetSecretValueInput{
+		SecretId: aws.String("cqrsAppCredential"),
+	})
+	var credentials AWSCredential
+	if err == nil {
+		fmt.Println("get secret ", output.SecretString)
+		err := json.Unmarshal([]byte(*output.SecretString), &credentials)
+		if err != nil {
+			log.Println("Failed to decode credential", err)
+			return nil, err
+		}
+		fmt.Println("decode credential", credentials)
+		return &credentials, nil
+	}
+	log.Println("Failed to loat credential", err)
+	return nil, err
 }
