@@ -77,6 +77,7 @@ func getInitiatedEvent(amount int) string {
 		SiteUuid:        siteUuid,
 	}
 	bytes, _ := json.Marshal(initiated)
+	fmt.Println("send initiated transaction to eventbus", initiated.TransactionUuid)
 	return string(bytes)
 }
 
@@ -88,6 +89,7 @@ func getApprovedEvent() string {
 		Timestamp:       time.Now().Format(time.RFC3339),
 		TimestampUtc:    time.Now().UTC().Format("2006-01-02T15:04:05Z07:00"),
 	}
+	fmt.Println("send approved transaction to eventbus", approved.TransactionUuid)
 	bytes, _ := json.Marshal(approved)
 	return string(bytes)
 }
