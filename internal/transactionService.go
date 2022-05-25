@@ -17,6 +17,8 @@ import (
 	"github.com/google/uuid"
 )
 
+var region = "ap-southeast-2"
+
 var entityUuid = "c1b5baaf-0301-4bc6-9ce8-ae9cf919638f"
 var siteUuid = "3c4ed0c6-a028-4c9f-a830-84c7cdde5db9"
 var deviceUuid = "a37317aa-e17c-4831-a503-9f40546c13f6"
@@ -83,7 +85,7 @@ func ProcessTransactionRequest(request []byte) {
 		return
 	}
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithRegion("ap-southeast-2"),
+		config.WithRegion(region),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(awsCredentials.KeyId, awsCredentials.Secret, "")),
 	)
 	if err != nil {
@@ -185,7 +187,9 @@ func getCredentials() (*AWSCredential, error) {
 
 	mySession := session.Must(session.NewSession())
 
-	client := secretsmanager.New(mySession)
+	client := secretsmanager.New(mySession, &aws.Config{
+		Region: aws.String(region),
+	})
 	output, err := client.GetSecretValue(&secretsmanager.GetSecretValueInput{
 		SecretId: aws.String("cqrsAppCredential"),
 	})
