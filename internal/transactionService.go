@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -102,13 +103,13 @@ func getInitiatedEvent(id string, amount int) string {
 	initiated := TransactionInitiated{
 		TransactionUuid: id,
 		Amount: Amount{
-			Currency: "AUD", Value: "6000",
+			Currency: "AUD", Value: strconv.Itoa(amount),
 		},
 		SurchargeAmount: Amount{
-			Currency: "AUD", Value: "6000",
+			Currency: "AUD", Value: "0",
 		},
 		TipAmount: Amount{
-			Currency: "AUD", Value: "6000",
+			Currency: "AUD", Value: "0",
 		},
 		Timestamp:    time.Now().Format(time.RFC3339),
 		TimestampUtc: time.Now().UTC().Format("2006-01-02T15:04:05Z07:00"),
