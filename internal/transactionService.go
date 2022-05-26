@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -12,8 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/eventbridge"
 	"github.com/aws/aws-sdk-go-v2/service/eventbridge/types"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/google/uuid"
 )
 
@@ -80,10 +79,7 @@ func ProcessTransactionRequest(request []byte) {
 		log.Println("Failed to process transaction request", err)
 		return
 	}
-	awsCredentials, err := getCredentials()
-	if err != nil {
-		return
-	}
+	awsCredentials := getCredentials()
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(region),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(awsCredentials.KeyId, awsCredentials.Secret, "")),
@@ -183,27 +179,9 @@ func sendEvent(client *eventbridge.Client, eventUri string, event string) {
 	fmt.Println("send event response", output.FailedEntryCount, output.Entries[0].ErrorCode, output.Entries[0].ErrorMessage)
 }
 
-func getCredentials() (*AWSCredential, error) {
-
-	mySession := session.Must(session.NewSession())
-
-	client := secretsmanager.New(mySession, &aws.Config{
-		Region: aws.String(region),
-	})
-	output, err := client.GetSecretValue(&secretsmanager.GetSecretValueInput{
-		SecretId: aws.String("cqrsAppCredential"),
-	})
+func getCredentials() AWSCredential {
 	var credentials AWSCredential
-	if err == nil {
-		fmt.Println("get secret ", output.SecretString)
-		err := json.Unmarshal([]byte(*output.SecretString), &credentials)
-		if err != nil {
-			log.Println("Failed to decode credential", err)
-			return nil, err
-		}
-		fmt.Println("decode credential", credentials)
-		return &credentials, nil
-	}
-	log.Println("Failed to loat credential", err)
-	return nil, err
+	credentials.KeyId = os.Getenv("AWS_ACCESS_KEY_ID")
+	credentials.Secret = os.Getenv("AWS_SECRET_ACCESS_KEY")
+	return credentials
 }
