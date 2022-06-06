@@ -99,6 +99,14 @@ func ProcessTransactionRequest(request []byte) {
 	sendEvent(client, "pgs.Transaction.Approved", approvedEvent)
 }
 
+func getTransactionScheme() string {
+	awsKey := os.Getenv("AWS_ACCESS_KEY_ID")
+	if len(awsKey) > 0 {
+		return "VISA"
+	}
+	return "MC"
+}
+
 func getInitiatedEvent(id string, amount int) string {
 	initiated := TransactionInitiated{
 		TransactionUuid: id,
@@ -117,7 +125,7 @@ func getInitiatedEvent(id string, amount int) string {
 		EntityUuid:   entityUuid,
 		SiteUuid:     siteUuid,
 		DeviceUuid:   deviceUuid,
-		Scheme:       "VISA",
+		Scheme:       getTransactionScheme(),
 	}
 	bytes, _ := json.Marshal(initiated)
 	payload := make(map[string]interface{})
