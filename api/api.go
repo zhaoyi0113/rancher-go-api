@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhaoyi0113/rancher-go-api/internal"
@@ -15,6 +16,7 @@ func CreateRoute() *gin.Engine {
 
 	r.GET("/health", func(c *gin.Context) {
 		fmt.Println("health check")
+		fmt.Println(os.Environ())
 		c.Writer.WriteHeader(http.StatusOK)
 	})
 
