@@ -100,8 +100,8 @@ func ProcessTransactionRequest(request []byte) {
 }
 
 func getTransactionScheme() string {
-	awsKey := os.Getenv("AWS_ACCESS_KEY_ID")
-	if len(awsKey) > 0 {
+	awsKey := os.Getenv("CLOUD_PROVIDER")
+	if awsKey == "AWS" {
 		return "VISA"
 	}
 	return "MC"
