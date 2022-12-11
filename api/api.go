@@ -20,6 +20,12 @@ func CreateRoute() *gin.Engine {
 		c.Writer.WriteHeader(http.StatusOK)
 	})
 
+	r.GET("/", func(c *gin.Context) {
+		fmt.Println("health check from gcp")
+		fmt.Println(os.Environ())
+		c.Writer.WriteHeader(http.StatusOK)
+	})
+
 	r.POST("/transaction", func(c *gin.Context) {
 		fmt.Println("get transation")
 		jsonData, err := ioutil.ReadAll(c.Request.Body)
